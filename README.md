@@ -1,159 +1,143 @@
-# [Chess Unwinnability Analyzer (CHA)](https://chasolver.org) <img src="https://miguel-ambrona.github.io/img/cha.png" width="70px" align="right">
+# CHA-Solver
 
-[![Tests](https://github.com/miguel-ambrona/D3-Chess/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/miguel-ambrona/D3-Chess/actions/workflows/c-cpp.yml)
+[![crates.io](https://img.shields.io/crates/v/chasolver.svg)](https://crates.io/crates/chasolver)
+[![docs.rs](https://docs.rs/chasolver/badge.svg)](https://docs.rs/chasolver)
+[![build](https://github.com/miguel-ambrona/chasolver/actions/workflows/ci.yml/badge.svg)](https://github.com/miguel-ambrona/chasolver/actions/workflows/ci.yml)
+[![website](https://img.shields.io/badge/website-chasolver.org-blue)](https://chasolver.org)
 
-CHA is a free and open-source implementation of a
-decision procedure for *checking whether there exists a sequence of legal moves
-that allows a certain player to checkmate their opponent*
-in a given chess position.
+A chess *helpmate* solver and unwinnability detector.
 
-(Although the unwinnability decision algorithm implemented in this tool is
-completely original, we use
-[Stockfish](https://github.com/official-stockfish/Stockfish) as a back end
-for move generation and chess-related functions.)
+Given a chess position and an intended winner, CHA-Solver either finds a
+helpmate line (a sequence of legal moves that ends in a checkmate delivered
+by the intended winner) or proves that no such sequence exists.
 
-## What is this tool useful for?
+> [!NOTE]
+> In a helpmate, the losing side is assumed to cooperate rather than play its
+> best defense.
 
-This tool can be used to rigorously (and automatically) applying Article 6.9 of
-the [FIDE Laws of Chess](https://www.fide.com/FIDE/handbook/LawsOfChess.pdf):
+## What is CHA-Solver for?
 
-> ...if a player does not complete the prescribed number of moves in the
-> allotted time, the game is lost by the player. However, the game is drawn
-> if the position is such that the opponent cannot checkmate the player's king
-> by any possible series of legal moves.
+When a player runs out of time, the game is almost always ruled a loss, *but it
+is exceptionally declared a draw if their opponent cannot possibly checkmate
+them*. Indeed, Article 6.9 of the
+[FIDE Laws of Chess](https://www.fide.com/FIDE/handbook/LawsOfChess.pdf)
+states:
 
-Which in shorter English would read as:
-*"If you run out of time but your opponent can't mate you, it's a draw!"*
+> “[...] the game is drawn if the position is such that the opponent cannot
+> checkmate the player’s king by any possible series of legal moves.”
 
-This is a (relatively unknown) generalization of the folklore rule that says
-that when you just have the king, you cannot win anymore, not even on the clock.
+Chess servers have historically ignored this rule, treating the problem as
+computationally intractable, leading to many wrongly decided games.
 
-This tool can also be used to correctly applying Article 5.2.2 of the FIDE Laws,
-which establishes that a game is finished as soon as the position becomes dead,
-i.e. unwinnable for both players, and no more moves should be played.
+CHA-Solver decides with mathematical certainty whether a helpmate is achievable
+from a given position. The algorithm is described in a peer-reviewed
+[paper](https://chasolver.org/FUN22-full.pdf) presented at the
+*11th International Conference on Fun with Algorithms*,
+[FUN 2022](https://sites.google.com/view/fun2022/).
 
-See [this page](https://chasolver.org)
-for more details about the problem of correctly applying Article 6.9 and to
-know more about this tool.
+In practice, CHA-Solver has resolved every single timeout position across the
+entire [Lichess database](https://database.lichess.org/) of standard rated
+games, more than 7 billion games in total. See [Performance](#performance)
+for detailed benchmarks measured on a 10-million-game sample.
 
+## Usage
 
-## Results
+Add `chasolver` to your `Cargo.toml`:
 
-We have evaluated CHA over the entire
-[Lichess Open Database](https://database.lichess.org/)
-of standard rated games, which includes more than 7.3 billion games to date (Nov 2025).
-More concretely, we have applied CHA to the final position of all games that
-ended in a timeout and that were classified as 1-0 or 0-1.
+```toml
+[dependencies]
+chasolver = "3.0"
+```
 
-Our analysis led to identifying a total of
-[184936](https://raw.githubusercontent.com/miguel-ambrona/D3-Chess/main/tests/unfair.txt)
-games that were unfairly classified.
-Namely, games that were lost by the player who ran out of time, but their
-opponent could not have checkmated them by any possible sequence of legal moves.
+The main entry point is `winnability`, which takes a position and an intended
+winner and returns an `Option<Winnability>`: `Some(Winnable)` or
+`Some(Unwinnable)` if the search concludes, or `None` if it doesn't (the
+node limit was reached before a definitive answer was found). `is_unwinnable_fast`
+takes the same arguments and returns a plain `bool`; see the docs for more
+details.
 
-## Full vs Quick version of CHA
+As an example, consider this position which arose in a real Lichess game
+([ijyj0mHa](https://lichess.org/ijyj0mHa#120)).
+White ran out of time and was adjudicated a loss, but this was an unfair
+result: *Black cannot possibly deliver checkmate*, even with White's
+cooperation, because there is a pawn wall that is permanently locked
+(the bishops are helpless to unlock it).
 
-In order to minimize the computational impact of running CHA, we propose a less
-complete, but faster version of our algorithm. Our quick version may terminate
-without having found a helpmate sequence in complex positions, declaring them
-as "probably winnable".
-Despite not being complete, our quick algorithm (since CHA v2.5.2) can correctly
-identify all unfairly classified games from the Lichess Open Database.
+![Position from lichess.org/ijyj0mHa](https://backscattering.de/web-boardimage/board.svg?fen=5b2/p7/Pp3k2/1Pp1pBp1/2P1P1P1/5K2/8/8&coordinates=true&size=300)
 
-Below, we present a comparison of the performance of the two versions of CHA
-when analyzing all the non-drawn timeouts of over 30 million games form Lichess.
-The experiments were performed on a personal laptop
-1.80GHz Intel-Core i7-10510U CPU, running Ubuntu 20.04 LTS.
+Surprisingly, *White can actually deliver checkmate* from this position,
+although that is irrelevant for the above timeout adjudication
+(it is Black who ran out of time). Try to find White's mating line yourself
+before checking the code below.
 
-|                                 |    Full CHA   |    Quick CHA   |
-|--------------------------------:|:-------------:|:--------------:|
-|   Average #positions per second |      3000     |    200,000+    |
-|       Average time per position |     336 μs    |     4.46 μs    |
-|              Standard deviation |     333 μs    |     7.45 μs    |
-|       Maximum time per position |     315 ms    |     2.17 ms    |
-| Unwinnable positions identified |  2446 (100%)  |  2446 (100%)   |
-|            Total execution time |   3 h 05 min  |   2 min 27 s   |
+CHA-Solver proves both facts.
 
+```rust
+use chasolver::{winnability, Winnability};
+use chess::{Board, BoardStatus, Color};
+use std::str::FromStr;
 
-## Installation & Usage
+let board = Board::from_str("5b2/p7/Pp3k2/1Pp1pBp1/2P1P1P1/5K2/8/8 w - -").unwrap();
 
-After cloning the repository:
+// White ran out of time and was adjudicated a loss. But since Black cannot
+// possibly deliver checkmate, the game should have been declared a draw.
+assert_eq!(winnability(&board, Color::Black), Some(Winnability::Unwinnable));
 
-1. Install Stockfish. From the `lib/stockfish/` directory, run
-`make get-stockfish` followed by `make` and `make install`.
+// Surprisingly, had Black been the one to run out of time (after they got the turn),
+// Black should be adjudicated a loss because a helpmate for White exists.
+let Some(Winnability::Winnable { helpmate }) = winnability(&board, Color::White) else {
+    panic!("expected this position to be winnable for White")
+};
 
-2. Compile CHA. From the `src/` directory, run `make`.
+// Play out the mating line and verify Black is checkmated.
+let mated_board = helpmate.iter().fold(board, |b, &m| b.make_move_new(m));
+assert_eq!(mated_board.status(), BoardStatus::Checkmate);
+assert_eq!(mated_board.side_to_move(), Color::Black);
+```
 
-You can test the tool by running `./cha test`.
+> [!TIP]
+> If you don't need the mating line and want to check many positions
+> quickly, reach for `is_unwinnable_fast` instead, see
+> [Performance](#performance) for the speed difference.
 
-Otherwise, simply run `./cha` to start a process which waits for commands
-from stdin. A command must be a valid
-[FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)
-position, followed by the intended winner (**white** or **black**).
-If no intended winner is specified, the *last player to make a move is the
-default intended winner* (i.e., the player who may still have time on the clock
-if the position comes from a timeout).
+Full API documentation is available at
+[docs.rs/chasolver](https://docs.rs/chasolver), and an interactive analyzer at
+[chasolver.org](https://chasolver.org).
 
-On every query, CHA will produce one line output including:
+## Performance
 
-1. [**winnable** _string_ **|** **unwinnable** **|** **undetermined**], the
-result of the evaluation.<br>
-When "winnable", a helpmate sequence in UCI format is provided.
+Both the full search (`winnability`) and the fast check (`is_unwinnable_fast`)
+return provably correct answers; they trade off speed against coverage. The
+numbers below were measured on the timeout position of 10 million real
+Lichess games that were adjudicated as a loss for the side that ran out of
+time, single-threaded on an Intel Xeon w3-2435 (release build).
 
-1. **nodes** _int_, the total number of positions evaluated.
+|                        | full                   | fast                             |
+| ---------------------- | ---------------------- | -------------------------------- |
+| Speed                  | ~30,000 positions/sec  | 700,000+ positions/sec           |
+| Avg. time per position | 33 µs                  | 1.4 µs                           |
+| Worst-case time        | 930 ms                 | 860 µs                           |
+| Coverage               | Complete*              | Sound, but incomplete in theory  |
+| Best for               | Per-game analysis      | Batch database scans             |
 
-1. **time** _int_, the total execution time (measured in microseconds).
+Both are complete on this set: they agree on every unwinnable position
+(i.e. every unfairly classified game), and the full search additionally
+returns an explicit helpmate for each position that turns out to be winnable.
 
-For example:
-
-> **./cha**<br>
-> Chess Unwinnability Analyzer (CHA) version 2.6.1<br>
-> **Bb2kb2/bKp1p1p1/1pP1P1P1/pP6/6P1/P7/8/8 b - -**<br>
-> winnable e8d8 b7a6 d8e8 a8b7 e8d8 b7c8 d8e8 c8d7 e8d8 d7e8 d8c8 g4g5 c8d8 e8f7 d8c8 f7g8 c8d8 a6b7 d8e8 b7c8 a5a4 g8f7# nodes 14175 time 22198 (Bb2kb2/bKp1p1p1/1pP1P1P1/pP6/6P1/P7/8/8 b - -)<br>
-> **7b/1k5B/7b/8/1p1p1p1p/1PpP1P1P/2P3K1/N7 b - - black**<br>
-> unwinnable nodes 10101 time 7332 (7b/1k5B/7b/8/1p1p1p1p/1PpP1P1P/2P3K1/N7 b - - black)
-
-There are a few of options you may choose when calling ./cha:
-
-* ```-u``` will only show an output on (u)nwinnable positions, ignoring all
-winnable. (Undetermined cases are also displayed if any.)
-
-* ```-quick``` will perform a quick analysis trying to prove that the position
-is unwinnable, only producing an output if so is the case.
-
-* ```-min``` will search for the minimum helpmate sequence (at the cost of
-disabling many optimizations). This can be used for solving helpmate problems.
-
-* ```-limit```, followed by an integer, can be used to change the #nodes limit
-in the search.
-
-Other examples:
-
-> **./cha -min -limit 1000000**<br>
-> Chess Unwinnability Analyzer (CHA) version 2.6.1<br>
-> **8/4K2k/4P2p/8/3b1q2/8/8/8 b - - white**<br>
-> winnable f4b8 e7f7 d4h8 e6e7 b8f8 e7f8n# nodes 473539 time 126129 (8/4K2k/4P2p/8/3b1q2/8/8/8 b - - white)
-
-Enjoy!
-
-## Test vectors
-
-If you are building your own tool for solving chess unwinnability, you may
-want to see how it performs on our
-[test vectors](https://github.com/miguel-ambrona/D3-Chess/blob/main/tests/test-vector.txt),
-a list of challenging positions queried by the community to our web tool
-[https://chasolver.org/analyzer](https://chasolver.org/analyzer.html).
-Each position comes with the corresponding classification with respect
-to unwinnability.
+\* Complete on every known legal position, real or constructed; not proven
+complete in theory. You could be the first to find one it can't resolve!
 
 ## Acknowledgments
 
-We would like to thank everyone who has contributed to this project.
+I would like to thank everyone who has contributed to this project, including
+the community members whose queries to
+[chasolver.org/analyzer](https://chasolver.org/analyzer) helped build
+[`tests/positions.txt`](tests/positions.txt): a set of challenging positions,
+each with its expected classification with respect to winnability, that
+you're welcome to use to evaluate your own unwinnability solver.
 
-Special thanks:
-[https://chasolver.org/acks.html](https://chasolver.org/acks.html).
+Special thanks: [chasolver.org/thanks](https://chasolver.org/thanks).
 
 ## License
 
-Since this software uses Stockfish, it is also distributed under the
-[*GNU General Public License version 3* (GPL v3)](https://github.com/miguel-ambrona/D3-Chess/blob/main/LICENSE).
+Licensed under the [MIT License](LICENSE).

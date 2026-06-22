@@ -1,8 +1,0 @@
-
- * Double-check that ignoring pawn visitors in semistatic is sound.
-
- * Improve the detection of unwinnable positions in blocked positions where the
-     checking bishop must check from a (non-defended) square next to the Loser's king
-     (and therefore can be captured by the Loser's king). These positions are now
-     classified as 'potentially winnable', but they could be classified correctly
-     as 'unwinnable'.
