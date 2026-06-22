@@ -1,0 +1,23 @@
+[package]
+name = "chasolver"
+version = "3.0.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Chess helpmate solver and unwinnability detector"
+license = "MIT"
+repository = "https://github.com/miguel-ambrona/chasolver"
+homepage = "https://chasolver.org"
+readme = "README.md"
+keywords = ["chess", "helpmate", "FIDE", "solver"]
+categories = ["games", "algorithms"]
+
+[dependencies]
+chess = "3.2"
+rustc-hash = "2.1"
+
+[dev-dependencies]
+rayon = "1.12.0"
+
+[profile.release]
+lto = true
+codegen-units = 1

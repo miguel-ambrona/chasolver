@@ -1,38 +1,19 @@
-# Prerequisites
-*.d
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Criterion benchmark results
+/criterion/
 
-# Precompiled Headers
-*.gch
-*.pch
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# Binary and Stockfish
-cha
-Stockfish/
-src/*.txt
-src/test
+# OS files
+.DS_Store
+Thumbs.db
