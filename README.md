@@ -67,8 +67,8 @@ cooperation, because there is a pawn wall that is permanently locked
 
 Surprisingly, *White can actually deliver checkmate* from this position,
 although that is irrelevant for the above timeout adjudication
-(it is Black who ran out of time). Try to find White's mating line yourself
-before checking the code below.
+(it is White who ran out of time). Try to find a helpmate for White
+yourself before checking the code below.
 
 CHA-Solver proves both facts.
 
