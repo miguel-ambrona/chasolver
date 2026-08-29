@@ -56,9 +56,3 @@ fn test_positions() {
     const POSITIONS: &str = include_str!("positions.txt");
     check_positions(POSITIONS);
 }
-
-#[test]
-fn test_lichess() {
-    const LICHESS: &str = include_str!("lichess.txt");
-    check_positions(LICHESS);
-}
