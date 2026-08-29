@@ -30,6 +30,7 @@ impl Analysis {
     /// them.
     pub(crate) fn update_attacked_squares(&mut self) {
         self.attacked = [EMPTY; NUM_COLORS];
+        self.attacked_by_non_king = [EMPTY; NUM_COLORS];
         for s in *self.board.combined() & !self.capturable {
             let piece = self.board.piece_on(s).unwrap();
             let color = self.board.color_on(s).unwrap();
@@ -61,6 +62,9 @@ impl Analysis {
             }
 
             self.attacked[color.to_index()] |= attacked;
+            if piece != Piece::King {
+                self.attacked_by_non_king[color.to_index()] |= attacked;
+            }
         }
     }
 
@@ -268,8 +272,15 @@ impl Analysis {
             // attacked or steady. The neighbors avoid a deadlock: relying on `reachable`
             // alone, this rule and its symmetric copy for the opponent's king could each
             // wait on the other's freedom being established first.
+            //
+            // Our own king is left out of the attacked set: we are considering the
+            // position *after* it has moved to `t`, where it no longer covers what it
+            // covers from `source`. Its coverage from `t` is `attacked_from_target`
+            // below.
             let opp_region = self.reachable[opp_king.to_index()]
-                | (get_king_moves(opp_king) & !self.attacked[color.to_index()] & !self.steady);
+                | (get_king_moves(opp_king)
+                    & !self.attacked_by_non_king[color.to_index()]
+                    & !self.steady);
 
             let diag_sliders = self.board.color_combined(color)
                 & (self.board.pieces(Piece::Bishop) | self.board.pieces(Piece::Queen));
