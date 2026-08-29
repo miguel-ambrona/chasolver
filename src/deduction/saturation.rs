@@ -10,8 +10,8 @@
 //! [`Analysis`] hold.
 
 use chess::{
-    get_bishop_moves, get_file, get_king_moves, get_pawn_attacks, get_rook_moves, line, BitBoard,
-    Color, Piece, Square, EMPTY, NUM_COLORS,
+    get_file, get_king_moves, get_pawn_attacks, line, BitBoard, Color, Piece, Square, EMPTY,
+    NUM_COLORS,
 };
 
 use super::{
@@ -265,6 +265,9 @@ impl Analysis {
         if piece == Piece::King {
             let opp = self.board.color_combined(!color);
             let opp_king = opp & self.board.pieces(Piece::King);
+            // Read before the move: if our own king is what blocks an opponent piece,
+            // vacating `source` frees it and there is no stalemate. Not observed, but
+            // this rule is only as sound as that reading.
             let opp_can_only_move_king = !opp_king & opp & self.movable == EMPTY;
             let opp_king = opp_king.to_square();
 
@@ -282,12 +285,6 @@ impl Analysis {
                     & !self.attacked_by_non_king[color.to_index()]
                     & !self.steady);
 
-            let diag_sliders = self.board.color_combined(color)
-                & (self.board.pieces(Piece::Bishop) | self.board.pieces(Piece::Queen));
-
-            let line_sliders = self.board.color_combined(color)
-                & (self.board.pieces(Piece::Rook) | self.board.pieces(Piece::Queen));
-
             if opp_can_only_move_king {
                 for t in targets {
                     let attacked_from_target = get_king_moves(t) | BitBoard::from_square(t);
@@ -297,26 +294,11 @@ impl Analysis {
                         continue;
                     }
 
-                    let blockers = !self.clear | BitBoard::from_square(t);
-
-                    // Don't treat this as a stalemate if vacating `source` opens a line for a
-                    // friendly slider to give check instead -- that would be checkmate, not a
-                    // draw.
-                    let diags = get_bishop_moves(source, blockers) & !blockers;
-                    if diag_sliders
-                        .into_iter()
-                        .any(|s| self.reachable[s.to_index()] & diags != EMPTY)
-                    {
-                        continue;
-                    };
-                    let lines = get_rook_moves(source, blockers) & !blockers;
-                    if line_sliders
-                        .into_iter()
-                        .any(|s| self.reachable[s.to_index()] & lines != EMPTY)
-                    {
-                        continue;
-                    };
-
+                    // This is stalemate rather than checkmate: the opponent was not in
+                    // check before (it was our move), so only a discovery from `source`
+                    // could give one, and that needs the square between `source` and their
+                    // king empty -- which frees the pieces needed to confine that king.
+                    //
                     // If our king move to `t` leaves the opponent king with at most 1 free
                     // square, we are stalemating them, so we filter out `t`.
                     if (opp_region & !attacked_from_target).popcnt() <= 1 {
