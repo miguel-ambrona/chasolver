@@ -1,6 +1,6 @@
 //! Search engine: state, core recursive search, and iteration strategies.
 
-use chess::{Board, ChessMove, Color, MoveGen, EMPTY};
+use chess::{Board, ChessMove, Color, MoveGen, Piece, EMPTY};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use super::{
@@ -63,6 +63,17 @@ pub(crate) struct Search {
     /// Per-square bishop distances to the mating corner; see
     /// [`super::utils::compute_bishop_distances`].
     pub(crate) bishop_distances: Option<[u8; 64]>,
+
+    /// If set to `Some((start, end))`, forbids bishop moves (either color)
+    /// while the total node count (`global_nodes + iteration_nodes`) falls
+    /// within `[start, end)`.
+    ///
+    /// Unlike every other field here, this one trades completeness for
+    /// reach: a branch that dead-ends inside the window does *not* prove
+    /// unwinnability (the forbidden bishop move might have been the only way
+    /// to mate), so whoever sets this must never surface an `Unwinnable`
+    /// result from the search it drives -- only `Winnable` or `None`.
+    pub(crate) bishop_ban_range: Option<(u64, u64)>,
 }
 
 impl Search {
@@ -80,6 +91,7 @@ impl Search {
             transposition_table: None,
             punishable: None,
             bishop_distances: None,
+            bishop_ban_range: None,
         }
     }
 
@@ -171,6 +183,16 @@ pub(crate) fn helpmate(board: &Board, search: &mut Search, depth: u8) -> Option<
     }
 
     for m in legal_moves {
+        if let Some((start, end)) = search.bishop_ban_range {
+            let nodes = search.global_nodes + search.iteration_nodes;
+            if nodes >= start
+                && nodes < end
+                && board.piece_on(m.get_source()) == Some(Piece::Bishop)
+            {
+                continue;
+            }
+        }
+
         search.iteration_nodes += 1;
 
         if search.is_limit_reached() {

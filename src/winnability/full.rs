@@ -93,5 +93,26 @@ pub(crate) fn analysis(board: &Board) -> Option<Winnability> {
     search.transposition_table =
         Some(FxHashMap::with_capacity_and_hasher(1 << 16, Default::default()));
     search.reset_global_nodes();
-    iterative_deepening(&pos, &mut search, 2..=128)
+    let result = iterative_deepening(&pos, &mut search, 2..=128);
+    if result.is_some() {
+        return result;
+    }
+
+    // Phase 9: Same search, but forbidding all bishop moves (either color)
+    // while the node count falls within a window partway through the
+    // budget, so the search can't spend that stretch on bishop shuffling and
+    // is forced toward non-bishop progress instead. The window starts after
+    // node 0 in case an early bishop move is needed to unlock another piece.
+    // This drops completeness -- a branch that dead-ends inside the window
+    // does not prove unwinnability, since a forbidden bishop move might have
+    // been the only way to mate -- so this phase may only ever confirm
+    // winnability, never disprove it.
+    search.bishop_ban_range = Some((1_000_000, 3_000_000));
+    search.transposition_table =
+        Some(FxHashMap::with_capacity_and_hasher(1 << 16, Default::default()));
+    search.reset_global_nodes();
+    match iterative_deepening(&pos, &mut search, 2..=128) {
+        winnable @ Some(Winnability::Winnable { .. }) => winnable,
+        _ => None,
+    }
 }

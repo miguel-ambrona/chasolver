@@ -3427,6 +3427,7 @@ WB 1N6/8/2p1p3/2PkP3/2pPp1K1/2PpP3/3P4/8 w - -
 W- 3b4/4p1p1/1p1pP1P1/1P1PpBp1/1pBpP1P1/1P1P4/4K1P1/2k5 w - -
 WB 6k1/6p1/5pKp/5P1P/8/8/8/8 b - -
 -- 8/7p/5p1P/5p1K/5Pp1/6P1/b3k3/8 w - -
+WB 1Bb5/1p6/pPp3k1/2Pp3p/P2PpBpP/4P1P1/5K2/8 w - -
 #
 #  Unfairly adjudicated timeout positions from a sample of real Lichess
 #  games: the player who won on time could not have won at all.
