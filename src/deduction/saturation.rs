@@ -10,8 +10,8 @@
 //! [`Analysis`] hold.
 
 use chess::{
-    get_bishop_moves, get_file, get_king_moves, get_pawn_attacks, get_rook_moves, line, BitBoard,
-    Color, Piece, Square, EMPTY, NUM_COLORS,
+    get_file, get_king_moves, get_pawn_attacks, line, BitBoard, Color, Piece, Square, EMPTY,
+    NUM_COLORS,
 };
 
 use super::{
@@ -30,6 +30,7 @@ impl Analysis {
     /// them.
     pub(crate) fn update_attacked_squares(&mut self) {
         self.attacked = [EMPTY; NUM_COLORS];
+        self.attacked_by_non_king = [EMPTY; NUM_COLORS];
         for s in *self.board.combined() & !self.capturable {
             let piece = self.board.piece_on(s).unwrap();
             let color = self.board.color_on(s).unwrap();
@@ -61,6 +62,9 @@ impl Analysis {
             }
 
             self.attacked[color.to_index()] |= attacked;
+            if piece != Piece::King {
+                self.attacked_by_non_king[color.to_index()] |= attacked;
+            }
         }
     }
 
@@ -261,6 +265,9 @@ impl Analysis {
         if piece == Piece::King {
             let opp = self.board.color_combined(!color);
             let opp_king = opp & self.board.pieces(Piece::King);
+            // Read before the move: if our own king is what blocks an opponent piece,
+            // vacating `source` frees it and there is no stalemate. Not observed, but
+            // this rule is only as sound as that reading.
             let opp_can_only_move_king = !opp_king & opp & self.movable == EMPTY;
             let opp_king = opp_king.to_square();
 
@@ -268,14 +275,15 @@ impl Analysis {
             // attacked or steady. The neighbors avoid a deadlock: relying on `reachable`
             // alone, this rule and its symmetric copy for the opponent's king could each
             // wait on the other's freedom being established first.
+            //
+            // Our own king is left out of the attacked set: we are considering the
+            // position *after* it has moved to `t`, where it no longer covers what it
+            // covers from `source`. Its coverage from `t` is `attacked_from_target`
+            // below.
             let opp_region = self.reachable[opp_king.to_index()]
-                | (get_king_moves(opp_king) & !self.attacked[color.to_index()] & !self.steady);
-
-            let diag_sliders = self.board.color_combined(color)
-                & (self.board.pieces(Piece::Bishop) | self.board.pieces(Piece::Queen));
-
-            let line_sliders = self.board.color_combined(color)
-                & (self.board.pieces(Piece::Rook) | self.board.pieces(Piece::Queen));
+                | (get_king_moves(opp_king)
+                    & !self.attacked_by_non_king[color.to_index()]
+                    & !self.steady);
 
             if opp_can_only_move_king {
                 for t in targets {
@@ -286,26 +294,11 @@ impl Analysis {
                         continue;
                     }
 
-                    let blockers = !self.clear | BitBoard::from_square(t);
-
-                    // Don't treat this as a stalemate if vacating `source` opens a line for a
-                    // friendly slider to give check instead -- that would be checkmate, not a
-                    // draw.
-                    let diags = get_bishop_moves(source, blockers) & !blockers;
-                    if diag_sliders
-                        .into_iter()
-                        .any(|s| self.reachable[s.to_index()] & diags != EMPTY)
-                    {
-                        continue;
-                    };
-                    let lines = get_rook_moves(source, blockers) & !blockers;
-                    if line_sliders
-                        .into_iter()
-                        .any(|s| self.reachable[s.to_index()] & lines != EMPTY)
-                    {
-                        continue;
-                    };
-
+                    // This is stalemate rather than checkmate: the opponent was not in
+                    // check before (it was our move), so only a discovery from `source`
+                    // could give one, and that needs the square between `source` and their
+                    // king empty -- which frees the pieces needed to confine that king.
+                    //
                     // If our king move to `t` leaves the opponent king with at most 1 free
                     // square, we are stalemating them, so we filter out `t`.
                     if (opp_region & !attacked_from_target).popcnt() <= 1 {

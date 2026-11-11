@@ -12,7 +12,7 @@ helpmate line (a sequence of legal moves that ends in a checkmate delivered
 by the intended winner) or proves that no such sequence exists.
 
 > [!NOTE]
-> In a helpmate, the losing side is assumed to cooperate rather than play its
+> In a helpmate, the losing side is assumed to cooperate rather than play their
 > best defense.
 
 ## What is CHA-Solver for?

@@ -50,6 +50,15 @@ pub(crate) struct Analysis {
     /// always be attacked by white pieces.
     pub(crate) attacked: [BitBoard; NUM_COLORS],
 
+    /// [`Self::attacked`] restricted to the non-king pieces of each color.
+    ///
+    /// Needed by the stalemate filter in [`super::saturation`], which reasons
+    /// about the position *after* our king has moved to a candidate target:
+    /// there it covers the target's neighbors, not the squares it happens to
+    /// cover from where it stands now, so its contribution to
+    /// [`Self::attacked`] must not be reused.
+    pub(crate) attacked_by_non_king: [BitBoard; NUM_COLORS],
+
     /// Over-approximation of the pieces that may be captured at some point in
     /// the remaining game.
     pub(crate) capturable: BitBoard,
@@ -113,6 +122,7 @@ impl Analysis {
             steady: *board.combined(),
             clear: !*board.combined(),
             attacked: [EMPTY; NUM_COLORS],
+            attacked_by_non_king: [EMPTY; NUM_COLORS],
             sacrificable: [EMPTY; NUM_COLORS],
             capturable: EMPTY,
             movable: EMPTY,

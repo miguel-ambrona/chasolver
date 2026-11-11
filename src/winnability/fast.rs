@@ -21,8 +21,8 @@ use crate::{
 ///
 /// Escalates through phases of increasing cost, each gated by cheaper
 /// conditions than the last, trying to prove the position is unwinnable for
-/// White; tuned to be complete on the Lichess test corpus while staying
-/// cheap on average. In order:
+/// White; tuned to be complete on the timeout positions of the whole Lichess
+/// database while staying cheap on average. In order:
 ///
 /// 1. Play out any forced sequence; a detected repetition counts as unwinnable.
 /// 2. A bounded-depth, full-width search ([`is_dynamically_unwinnable`]),
