@@ -14,8 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install nightly rustfmt
-        run: rustup toolchain install nightly --component rustfmt
-      - run: cargo +nightly fmt --check
+        run: rustup toolchain install nightly-2026-05-29 --component rustfmt
+      - run: cargo +nightly-2026-05-29 fmt --check
 
   clippy:
     runs-on: ubuntu-latest
@@ -36,8 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install 1.82 --no-self-update
+      - run: rustup toolchain install 1.85 --no-self-update
       - uses: Swatinem/rust-cache@v2
         with:
-          key: msrv-1.82
-      - run: cargo +1.82 test --release
+          key: msrv-1.85
+      - run: cargo +1.85 test --release
