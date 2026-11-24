@@ -272,9 +272,15 @@ impl Analysis {
             let opp_king = opp_king.to_square();
 
             // The opponent king's reachable squares, plus its neighbors not yet proven
-            // attacked or steady. The neighbors avoid a deadlock: relying on `reachable`
-            // alone, this rule and its symmetric copy for the opponent's king could each
-            // wait on the other's freedom being established first.
+            // attacked or blocked by its own steady pieces. The neighbors avoid a
+            // deadlock: relying on `reachable` alone, this rule and its symmetric copy
+            // for the opponent's king could each wait on the other's freedom being
+            // established first.
+            //
+            // Our steady pieces do not block it: their king may capture them, and
+            // their steadiness may itself rest on this filter. E.g. in
+            // `8/8/8/8/1p6/kP6/P7/1K6 w - -` the a2 and b3 pawns walled in the black
+            // king, so Kb1 looked stuck, although 1. Kc1 Kxa2 ... b1=Q# is a helpmate.
             //
             // Our own king is left out of the attacked set: we are considering the
             // position *after* it has moved to `t`, where it no longer covers what it
@@ -283,7 +289,7 @@ impl Analysis {
             let opp_region = self.reachable[opp_king.to_index()]
                 | (get_king_moves(opp_king)
                     & !self.attacked_by_non_king[color.to_index()]
-                    & !self.steady);
+                    & !(self.steady & opp));
 
             if opp_can_only_move_king {
                 for t in targets {
