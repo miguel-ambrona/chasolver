@@ -265,10 +265,17 @@ impl Analysis {
         if piece == Piece::King {
             let opp = self.board.color_combined(!color);
             let opp_king = opp & self.board.pieces(Piece::King);
-            // Read before the move: if our own king is what blocks an opponent piece,
-            // vacating `source` frees it and there is no stalemate. Not observed, but
-            // this rule is only as sound as that reading.
-            let opp_can_only_move_king = !opp_king & opp & self.movable == EMPTY;
+            // Read before the move. If our king on `source` is what blocks an opponent
+            // pawn, vacating `source` frees it and there is no stalemate. (A pawn push
+            // is the only move our king can block without being in check.) Their
+            // pawn's `movable` cannot tell: it rests on our king leaving `source`,
+            // which may itself rest on this filter. E.g. in `8/8/8/6p1/6Pk/7P/7p/7K w - -`
+            // Kg2 looked like stalemate, although 1. Kg2 h1=N ... is a helpmate.
+            let blocks_opp_pawn = source.forward(color).is_some_and(|s| {
+                opp & self.board.pieces(Piece::Pawn) & BitBoard::from_square(s) != EMPTY
+            });
+            let opp_can_only_move_king =
+                !opp_king & opp & self.movable == EMPTY && !blocks_opp_pawn;
             let opp_king = opp_king.to_square();
 
             // The opponent king's reachable squares, plus its neighbors not yet proven
