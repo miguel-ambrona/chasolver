@@ -3475,3 +3475,17 @@ WB k7/p7/Kp6/1P6/8/1P6/8/8 b - -
 WB 7k/7p/3p1p1K/p1pP1P1P/P1P5/5P2/8/8 b - -
 WB 8/8/2B5/8/1p4p1/kP6/P5P1/1K6 b - -
 WB 6k1/7p/5p1K/7P/5P2/8/8/8 w - -
+#
+#  Positions where the stalemate filter missed that a king, by moving away,
+#  frees the enemy pawn it was blocking, and so claimed a helpmate was
+#  impossible. Found by random search, not from real games.
+#
+WB 8/8/8/6p1/6Pk/7P/7p/7K w - -
+WB 8/8/8/6p1/5pP1/5P1k/7p/7K b - -
+WB 8/8/8/1p6/kP6/P7/p7/K7 w - -
+WB 8/8/1p6/1p6/kP6/P7/p7/K7 b - -
+WB k7/P7/p7/Kp6/1P6/8/8/8 b - -
+WB k7/P7/p7/Kp6/1P6/1P6/8/8 w - -
+WB k7/P7/p7/Kp6/pP6/P7/8/8 b - -
+WB 7k/7P/5p1K/5Pp1/6P1/8/8/8 w - -
+WB 7k/6pp/6Pp/6pK/5pPp/5P1P/8/8 w - -
